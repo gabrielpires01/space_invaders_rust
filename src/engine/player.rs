@@ -19,5 +19,19 @@ impl Player {
         self.pos[0] = self.pos[0] + 1
     }
 
-        
+    pub fn render(&self, col: usize, row: usize) -> &str {
+        if self.pos[1] == row && col >= 2 {
+            if self.pos[0] == col - 2 {
+                "\\"
+            }else if self.pos[0] == col - 1 {
+                "I" 
+            } else if self.pos[0] == col {
+                "/"
+            }else {
+                " "
+            }
+        } else {
+            " "
+        }
+    }
 }

@@ -13,7 +13,7 @@ pub fn handle_events(player: &mut Player, board: &mut Board) -> Result<bool> {
                         } else if c.to_string() == "a" {
                             player.move_left();
                         } else if c.to_string() == "w" {
-                            board.bullets.push(Bullet {speed: 1, position: [player.pos[0], player.pos[1] - 1], alive: true})
+                            board.bullets.push(Bullet {speed: 1, x: player.x, y: player.y - 1, alive: true})
                         } else if c.to_string() == "q" {
                             return Ok(true)
                         } 

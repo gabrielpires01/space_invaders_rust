@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, io::{Stdout, Write}, thread, time::Instant};
 
 use crossterm::{cursor, style::Print, terminal, ExecutableCommand};
 
-use crate::{bullet::Bullet, enemy::Enemy, player::Player};
+use crate::{bullet::Bullet, enemy::Enemy, player::Player, FPS};
 
 #[derive(PartialEq, Debug)]
 pub enum Entity {
@@ -18,9 +18,9 @@ pub type Field = Vec<Vec<Entity>>;
 pub struct Board {
     pub rows: usize,
     pub cols: usize,
-
     pub bullets: Vec<Bullet>,
-    pub enemies: Vec<Enemy>
+    pub enemies: Vec<Enemy>,
+    pub enemy_freq: u64
 }
 
 // Enemies = /@\
@@ -34,6 +34,11 @@ pub const EMPTY_VAL: u8 = 0;
 
 // Create ids for enemies and bullets
 impl Board {
+    pub fn new(rows: usize, cols:usize) -> Board {
+        let enemy_freq = 2*FPS; // 3s spawn new enemy
+        Board { enemies: vec![], bullets: vec![], rows, cols, enemy_freq }
+    }
+
     fn cell_entity(&self, player: &Player, x: usize, y: usize) -> Entity {
         let value = player.get_value(x, y);
         if value == PLAYER_VAL {
@@ -90,8 +95,13 @@ impl Board {
         board
     }
 
-    pub fn render(&mut self, player: &Player, stdout: &mut Stdout, frame_duration: time::Duration) -> Field {
+    pub fn render(&mut self, player: &Player, stdout: &mut Stdout, frame_duration: time::Duration, timer: u64) -> Field {
         let start = Instant::now();
+        if timer % self.enemy_freq == 0 {
+            let enemy = Enemy::new(self.cols, self.rows, timer);
+            self.enemies.push(enemy);
+        }
+
         let mut enemy_map: BTreeMap<_,_> = self.enemies.iter().enumerate().map(|(i, e)| (i, e)).collect();
         let mut bullet_map: BTreeMap<_,_> = self.bullets.iter().enumerate().map(|(i, b)| (i, b)).collect();
 
@@ -113,7 +123,7 @@ impl Board {
             }
         }
 
-        remove_enemies.clone().iter().for_each(|e| {
+        remove_enemies.iter().for_each(|e| {
            enemy_map.remove(e);
         });
         remove_bullets.iter().for_each(|e| {
@@ -126,7 +136,11 @@ impl Board {
 
         let enemies = enemy_map.into_iter().map(|(_,e)| e.to_owned()).collect::<Vec<_>>();
         self.enemies = enemies.into_iter().filter(|e| e.alive).collect();
-        self.enemies.iter_mut().for_each(|e| e.rand_mov(&board));
+        self.enemies.iter_mut().for_each(|e| {
+            if (timer - e.created) % e.freq.try_into().unwrap_or(1) == 0 { 
+                e.rand_mov(&board)
+            }
+        });
 
         for (y, line) in board.iter().enumerate() {
             let mut display_line = vec![];

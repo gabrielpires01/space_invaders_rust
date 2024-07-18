@@ -1,9 +1,9 @@
 use std::io::Result;
 use crossterm::{event::{Event, KeyCode}, *};
-use crate::{board::Board, bullet::Bullet, player::Player};
+use crate::{board::Board, bullet::Bullet, player::Player, FPS};
 
 pub fn handle_events(player: &mut Player, board: &mut Board) -> Result<bool> {
-    if event::poll(std::time::Duration::from_millis(1000/30))? {
+    if event::poll(std::time::Duration::from_millis(1000/FPS))? {
         if let Event::Key(key) = event::read().expect("Read key") {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {

@@ -22,7 +22,7 @@ fn main() {
     let mut timer: u64 = 0;
     while !leave_game {
         board.render(&player ,&mut stdout, frame_duration, timer);
-        leave_game = handle_events(&mut player, &mut board).unwrap();
+        leave_game = handle_events(&mut player, &mut board, timer).unwrap();
         timer += 1;
     }
     execute!(stdout, LeaveAlternateScreen).unwrap();

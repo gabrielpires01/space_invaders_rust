@@ -7,6 +7,7 @@ pub struct Bullet {
 
     pub speed: usize,
     pub alive: bool,
+    pub created: u64
 }
 
 impl Bullet {

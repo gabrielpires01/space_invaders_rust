@@ -10,6 +10,7 @@ pub enum Entity {
     ENEMY(Enemy),
     PLAYER(Player),
     BULLET(Bullet),
+    COLISION(u64, u64),
     EMPTY
 }
 
@@ -26,6 +27,7 @@ pub struct Board {
 // Enemies = /@\
 // player = /I\
 
+pub const COLISION_VAL: u8 = 4;
 pub const PLAYER_VAL: u8 = 3;
 pub const BULLET_VAL: u8 = 2;
 pub const ENEMY_VAL: u8 = 1;
@@ -41,6 +43,8 @@ impl Board {
 
     fn cell_entity(&self, player: &Player, x: usize, y: usize) -> Entity {
         let value = player.get_value(x, y);
+        let mut entity = Entity::EMPTY;
+        let mut id:u64 = 0;
         if value == PLAYER_VAL {
             return Entity::PLAYER(player.to_owned());
         } 
@@ -48,7 +52,8 @@ impl Board {
             if e.alive {
                 let render_value = e.get_value(x, y);
                 if render_value != EMPTY_VAL {
-                    return Entity::ENEMY(e.to_owned());
+                    entity = Entity::ENEMY(e.to_owned());
+                    id = e.created;
                 };
             };
         };
@@ -56,11 +61,15 @@ impl Board {
             if b.alive {
                 let render_value = b.get_value(x, y);
                 if render_value != EMPTY_VAL {
-                    return Entity::BULLET(b.to_owned());
+                    if entity != Entity::EMPTY {
+                        entity = Entity::COLISION(b.created, id);
+                    } else {
+                        entity = Entity::BULLET(b.to_owned());
+                    }
                 }
             }
         };
-        Entity::EMPTY
+        entity
     }
 
     fn cell_value(&self, entity: &Entity) -> u8 {
@@ -68,7 +77,8 @@ impl Board {
             Entity::EMPTY => EMPTY_VAL,
             Entity::ENEMY(_) => ENEMY_VAL,
             Entity::PLAYER(_) => PLAYER_VAL,
-            Entity::BULLET(_) => BULLET_VAL
+            Entity::BULLET(_) => BULLET_VAL,
+            Entity::COLISION(_,_) => COLISION_VAL
         }
     }
 
@@ -77,7 +87,8 @@ impl Board {
             Entity::EMPTY => " ".to_string(),
             Entity::ENEMY(e) => e.render(col, row).to_string(),
             Entity::PLAYER(p) => p.render(col, row).to_string(),
-            Entity::BULLET(b) => b.render(col, row).to_string()
+            Entity::BULLET(b) => b.render(col, row).to_string(),
+            Entity::COLISION(_,_) => "X".to_string()
         }
     }
 
@@ -102,8 +113,8 @@ impl Board {
             self.enemies.push(enemy);
         }
 
-        let mut enemy_map: BTreeMap<_,_> = self.enemies.iter().enumerate().map(|(i, e)| (i, e)).collect();
-        let mut bullet_map: BTreeMap<_,_> = self.bullets.iter().enumerate().map(|(i, b)| (i, b)).collect();
+        let mut enemy_map: BTreeMap<_,_> = self.enemies.iter().map(|e| (e.created, e)).collect();
+        let mut bullet_map: BTreeMap<_,_> = self.bullets.iter().map(|b| (b.created, b)).collect();
 
         stdout.execute(terminal::Clear(terminal::ClearType::All)).unwrap();
         stdout.execute(cursor::MoveTo(0, 0)).unwrap();
@@ -111,18 +122,22 @@ impl Board {
         
         let mut remove_bullets = vec![];
         let mut remove_enemies = vec![];
-        for (i_bullet, b) in bullet_map.clone().into_iter() {
-            for (i_enemy, _) in enemy_map.clone().into_iter() {
+        for (_, b) in bullet_map.iter() {
+            for (_, _) in enemy_map.iter() {
                 let pos_entity = &board[b.y][b.x];
                 let entity_value = self.cell_value(pos_entity);
-                if entity_value == ENEMY_VAL{
-                    remove_bullets.push(i_bullet);
-                    remove_enemies.push(i_enemy);
+                if entity_value == COLISION_VAL {
+                    match pos_entity {
+                        Entity::COLISION(b_id, e_id) => {
+                            remove_bullets.push(b_id);
+                            remove_enemies.push(e_id);
+                        },
+                        _ => {}
+                    }
                     break
                 }
             }
         }
-
         remove_enemies.iter().for_each(|e| {
            enemy_map.remove(e);
         });
@@ -137,7 +152,7 @@ impl Board {
         let enemies = enemy_map.into_iter().map(|(_,e)| e.to_owned()).collect::<Vec<_>>();
         self.enemies = enemies.into_iter().filter(|e| e.alive).collect();
         self.enemies.iter_mut().for_each(|e| {
-            if (timer - e.created) % e.freq.try_into().unwrap_or(1) == 0 { 
+            if (timer - e.created) % e.speed.try_into().unwrap_or(1) == 0 { 
                 e.rand_mov(&board)
             }
         });
